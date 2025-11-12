@@ -3,37 +3,57 @@
 
 {% block head_extra %}
 <meta charset="UTF-8">
-<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/2.0.8/css/dataTables.bootstrap3.min.css"/>
-<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/3.0.2/css/buttons.bootstrap3.min.css"/>
+<link rel="stylesheet" type="text/css"
+      href="https://cdn.datatables.net/2.0.8/css/dataTables.bootstrap5.min.css"/>
+<link rel="stylesheet" type="text/css"
+      href="https://cdn.datatables.net/buttons/3.0.2/css/buttons.bootstrap5.min.css"/>
+
 <style>
     body {
-        font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        background-color: #fdfdfd;
     }
+
     .filter-input {
-        width: 100%; 
-        box-sizing: border-box; 
+        width: 100%;
+        box-sizing: border-box;
         padding: 4px;
         margin-top: 5px;
         border: 1px solid #ccc;
         border-radius: 4px;
+        font-size: 0.9rem;
     }
+
     .table-responsive {
         width: 100% !important;
         overflow-x: auto;
     }
+
     #data_table {
         width: 100% !important;
-        table-layout: auto;
         border-collapse: collapse;
     }
+
     #data_table th, #data_table td {
-        white-space: nowrap;
         text-align: center;
+        vertical-align: middle;
+        white-space: nowrap;
         padding: 6px 10px;
     }
+
     #data_table thead th {
         background-color: #f8f9fa;
-        font-weight: bold;
+        font-weight: 600;
+    }
+
+    /* Responsive column width scaling */
+    #data_table th:nth-child(1) { width: 40px; }
+    #data_table th:nth-child(2),
+    #data_table td:nth-child(2) { min-width: 100px; }
+    #data_table th,
+    #data_table td {
+        word-break: break-word;
+        white-space: normal;
     }
 </style>
 {% endblock %}
@@ -49,7 +69,7 @@
 
 <div class="alert alert-info" role="alert">
     <strong>Gelişmiş Filtreleme:</strong> Her sütunun altındaki kutucuktan ayrı ayrı filtreleme yapabilirsiniz.
-    Örneğin 'Marka' sütununa 'Philips' yazıp filtreledikten sonra, 'Model' sütununa 'MX' yazıp sadece MX modellerini görebilirsiniz.
+    Örneğin 'Marka' sütununa <b>Philips</b> yazıp filtreledikten sonra, 'Model' sütununa <b>MX</b> yazarak sadece MX modellerini görebilirsiniz.
 </div>
 
 <form method="POST" action="/prepare_for_print">
@@ -79,7 +99,8 @@
                 <tr>
                     <th></th>
                     {% for col in columns %}
-                    <th><input type="text" placeholder="{{ col }} filtrele" class="filter-input" data-column-index="{{ loop.index }}"></th>
+                    <th><input type="text" placeholder="{{ col }} filtrele"
+                               class="filter-input" data-column-index="{{ loop.index }}"></th>
                     {% endfor %}
                 </tr>
             </tfoot>
@@ -99,7 +120,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script> 
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/2.0.8/js/dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/2.0.8/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/3.0.2/js/dataTables.buttons.min.js"></script>
@@ -108,12 +129,14 @@
 
 <script>
 $(document).ready(function() {
+    // DataTables başlatma
     var table = $('#data_table').DataTable({
         order: [],
+        autoWidth: false,
+        responsive: true,
         columnDefs: [
             { orderable: false, targets: 0 },
-            { searchable: false, targets: 0 },
-            { searchable: true, targets: '_all' }
+            { searchable: false, targets: 0 }
         ],
         language: {
             url: "//cdn.datatables.net/plug-ins/2.0.8/i18n/tr.json"
@@ -134,23 +157,23 @@ $(document).ready(function() {
         }
     });
 
+    // Kolon görünürlüğü düğmeleri
     table.buttons().container().appendTo('#colvis-container');
     $('#data_table_filter').hide();
 
+    // Sütun bazlı filtreleme
     $('.filter-input').on('keyup change', function() {
         var colIndex = $(this).data('column-index');
         table.column(colIndex).search(this.value, false, true).draw();
     });
 
+    // Satır seçimi yönetimi
     var selectedRows = new Set();
 
     $('#data_table tbody').on('change', 'input[name="selected_rows_checkbox"]', function() {
         var value = $(this).val();
-        if (this.checked) {
-            selectedRows.add(value);
-        } else {
-            selectedRows.delete(value);
-        }
+        if (this.checked) selectedRows.add(value);
+        else selectedRows.delete(value);
         updateButton();
         updateSelectAll();
     });
@@ -168,12 +191,14 @@ $(document).ready(function() {
     });
 
     function updateSelectAll() {
-        var visible = table.rows({ search: 'applied', page: 'current' }).nodes().to$().find('input[name="selected_rows_checkbox"]');
+        var visible = table.rows({ search: 'applied', page: 'current' })
+            .nodes().to$().find('input[name="selected_rows_checkbox"]');
         var checkedCount = visible.filter(':checked').length;
         $('#select_all').prop('checked', checkedCount > 0 && checkedCount === visible.length);
         $('#select_all').prop('indeterminate', checkedCount > 0 && checkedCount < visible.length);
     }
 
+    // Form gönderimi: seçili satırları gizli input olarak ekle
     $('form').on('submit', function() {
         $('input[name="selected_rows"]').remove();
         selectedRows.forEach(function(v) {
@@ -194,10 +219,11 @@ $(document).ready(function() {
     }
 
     table.on('draw', function() {
-        table.rows({ page: 'current' }).nodes().to$().find('input[name="selected_rows_checkbox"]').each(function() {
-            var value = $(this).val();
-            this.checked = selectedRows.has(value);
-        });
+        table.rows({ page: 'current' }).nodes().to$()
+            .find('input[name="selected_rows_checkbox"]').each(function() {
+                var value = $(this).val();
+                this.checked = selectedRows.has(value);
+            });
         updateSelectAll();
     });
 
