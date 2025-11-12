@@ -7,13 +7,13 @@ const fs = require('fs');
 const nunjucks = require('nunjucks'); 
 // Veri işleme kütüphaneleri
 const xlsx = require('xlsx');
-// DÜZELTME: csvtojson kütüphanesini doğru şekilde import edin.
+// KRİTİK DÜZELTME: csvtojson kütüphanesini doğru şekilde import edin.
 const csv = require('csvtojson'); 
 const qrcode = require('qrcode');
 
 const app = express();
-// RENDER UYUMLULUĞU: Render'ın atadığı portu kullanmak için eklendi.
-const PORT = process.env.PORT || 3000;
+// RENDER UYUMLULUĞU DÜZELTİLDİ: Dinamik portu kullan
+const PORT = process.env.PORT || 3000; 
 const UPLOAD_FOLDER = 'uploads';
 const ALLOWED_EXTENSIONS = ['.csv', '.xlsx'];
 
@@ -21,7 +21,7 @@ const ALLOWED_EXTENSIONS = ['.csv', '.xlsx'];
 const env = nunjucks.configure(path.join(__dirname, 'views'), {
     autoescape: true,
     express: app,
-    noCache: true // Geliştirme aşamasında önbelleği kapat
+    noCache: true 
 });
 
 // Flask'taki `url_for` taklidi için Nunjucks global filtresi
@@ -32,9 +32,9 @@ env.addGlobal('url_for', (name, params) => {
     return `/${name}`; 
 });
 
-// Flask'taki `request.endpoint` taklidi. Navbar'daki 'active' sınıfı için
+// Flask'taki `request.endpoint` taklidi.
 env.addGlobal('request', {
-    endpoint: 'login' // Varsayılan değer
+    endpoint: 'login' 
 });
 
 
@@ -46,7 +46,7 @@ app.use(session({
     secret: 'cok_gizli_ve_guvenli_bir_anahtar',
     resave: false,
     saveUninitialized: true,
-    cookie: { maxAge: 24 * 60 * 60 * 1000 }
+    cookie: { maxAge: 24 * 60 * 60 * 1000 } 
 }));
 
 // Yükleme klasörünü oluştur
@@ -76,7 +76,6 @@ const upload = multer({
 
 
 // --- Middleware ---
-// Oturum/Flash Mesajlar ve request.endpoint Güncellemesi
 app.use((req, res, next) => {
     res.locals.messages = req.session.messages || [];
     req.session.messages = [];
@@ -102,7 +101,7 @@ const loginRequired = (req, res, next) => {
 
 // --- Rotalar ---
 
-// 1. GİRİŞ (LOGIN) ROTASI - Yönlendirme hatası olmaması için en üstte olmalı
+// 1. GİRİŞ (LOGIN) ROTASI - En üstte olmalı
 app.get('/login', (req, res) => {
     res.render('login.html', { title: 'Kullanıcı Girişi', form: {} });
 });
@@ -124,7 +123,7 @@ app.post('/login', (req, res) => {
 
 // 2. KÖK DİZİN YÖNLENDİRMESİ - Uygulama açılışında /login'e yönlendirir.
 app.get('/', (req, res) => {
-    res.redirect('/login');
+    res.redirect('/login'); 
 });
 
 
@@ -160,7 +159,7 @@ app.post('/upload', loginRequired, upload.single('file'), async (req, res) => {
             const sheetName = workbook.SheetNames[0];
             data = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
         } else if (fileExt === '.csv') {
-            // Düzeltme 2: csvtojson kütüphanesinin doğru kullanımı.
+            // DÜZELTME KULLANILDI: csvtojson kütüphanesinin doğru kullanımı.
             data = await csv().fromFile(filePath); 
         } else {
             throw new Error('Geçersiz dosya uzantısı.');
@@ -201,7 +200,7 @@ app.get('/table_view', loginRequired, (req, res) => {
     });
 });
 
-// ... (Diğer tüm rotalar aşağıda kalır: /prepare_for_print, /qrcode/:data_to_encode, /print_preview vb.) ...
+// Yazdırmaya Hazırlık Rotası (POST)
 app.post('/prepare_for_print', loginRequired, (req, res) => {
     const selectedRowIndexes = Array.isArray(req.body.selected_rows) 
         ? req.body.selected_rows.map(index => parseInt(index, 10))
@@ -260,18 +259,22 @@ app.get('/print_preview', loginRequired, (req, res) => {
         return res.redirect('/table_view');
     }
 
-    // *** STATİK ŞABLON TANIMI ***
+    // STATİK ŞABLON TANIMI
     const defaultTemplate = [
         { "id": "cell1", "type": "static_text", "content": "Ürün Adı:", "rowspan": 1, "colspan": 2, "align": "left", "style": { "font_size": "10pt", "color": "#000000", "bg_color": "" }},
         { "id": "cell2", "type": "text", "name": "URUN_ADI", "rowspan": 1, "colspan": 2, "align": "left", "style": { "font_size": "10pt", "color": "#007bff", "bg_color": "" }},
         { "id": "cell3", "type": "qrcode", "name": "SERI_NO", "rowspan": 3, "colspan": 2, "align": "center", "style": { "font_size": "10pt", "color": "#000000", "bg_color": "" }},
+
         { "id": "cell4", "type": "static_text", "content": "Model:", "rowspan": 1, "colspan": 2, "align": "left", "style": { "font_size": "8pt", "color": "#000000", "bg_color": "" }},
         { "id": "cell5", "type": "text", "name": "MODEL", "rowspan": 1, "colspan": 2, "align": "left", "style": { "font_size": "8pt", "color": "#000000", "bg_color": "" }},
+        
         { "id": "cell6", "type": "static_text", "content": "Seri No:", "rowspan": 1, "colspan": 2, "align": "left", "style": { "font_size": "8pt", "color": "#000000", "bg_color": "" }},
         { "id": "cell7", "type": "text", "name": "SERI_NO", "rowspan": 1, "colspan": 2, "align": "left", "style": { "font_size": "8pt", "color": "#000000", "bg_color": "" }},
+
         { "id": "cell8", "type": "barcode_text", "name": "SERI_NO", "rowspan": 1, "colspan": 6, "align": "center", "style": { "font_size": "14pt", "color": "#000000", "bg_color": "#f0f0f0" }},
     ];
 
+    // Etiket HTML Oluşturma Mantığı
     const generateLabels = (data, template) => {
         const labels = [];
         const TOTAL_COLS = 6;
