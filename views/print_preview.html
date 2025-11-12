@@ -1,65 +1,50 @@
 {% extends "base.html" %}
 {% block title %}Yazdırma Önizlemesi{% endblock %}
 
-{% block head %}
+{% block head_extra %}
 <style>
-    /* *** Yazdırma Kalitesini ve Tasarım Esnekliğini Artıran CSS Grid Tanımları *** */
-    
-    /* Etiketin ana kutusu: Dış kenarlık ve sayfa sonuna denk gelme kuralı */
+    /* Etiketin ana kutusu */
     .etiket-kutu { 
-        width: 100%; /* Sayfanın tamamını kapla */
-        border: 2px solid black; /* İstenen kalın dış kenarlık */
-        margin: 5px 0; /* Etiketler arası boşluk */
-        page-break-inside: avoid; /* Yazdırma sırasında etiketi ortadan bölme! */
+        width: 100%;
+        border: 2px solid black;
+        margin: 5px 0;
+        page-break-inside: avoid;
         display: flex; 
         flex-direction: column; 
     }
     
-    /* Etiketin iç yapısı: 6 eşit sütunlu Grid */
+    /* Grid sistemi */
     .etiket-grid {
         display: grid;
-        grid-template-columns: repeat(6, 1fr); /* 6 eşit genişlikte sütun */
-        gap: 0; /* Hücreler arasında boşluk bırakma */
+        grid-template-columns: repeat(6, 1fr);
+        gap: 0;
         width: 100%;
     }
     
-    /* Tek bir hücrenin tanımı: Kenarlık, Birleştirme ve İçerik Hizalama */
+    /* Hücre tasarımı */
     .label-cell {
-        border: 1px solid #333; /* İnce hücre kenarlığı */
+        border: 1px solid #333;
         padding: 5px;
-        box-sizing: border-box; /* Padding ve border'ı genişliğe dahil et */
-        
-        /* İçeriği dikey ve yatayda ortalamak için */
+        box-sizing: border-box;
         display: flex;
-        align-items: center; /* Dikeyde ortala */
-        justify-content: center; /* Yatayda ortala */
+        align-items: center;
+        justify-content: center;
         text-align: center;
-        
-        overflow: hidden; /* Taşmayı önle */
-        /* Dinamik olarak app.py'dan gelen stil ayarları bu hücreye uygulanır */
+        overflow: hidden;
     }
     
-    /* Yazdırma Medyası İçin Ayarlar (Tarayıcı menüsünden yazdırmayı etkinleştirir) */
     @media print {
-        /* Yazdırırken sadece etiket kutularını göster */
         body > *:not(.print-container) {
             display: none !important;
         }
-        
-        /* Etiket kutusu container'ını göster */
         .print-container {
             display: block !important;
             margin: 0;
             padding: 0;
             width: 100%;
         }
-        
-        /* Sayfa başlıkları, altbilgileri vb. gizle */
-        @page { 
-            margin: 0; /* Kenar boşluklarını sıfırla */
-        }
+        @page { margin: 0; }
     }
-    
 </style>
 {% endblock %}
 
@@ -71,25 +56,28 @@
     </button>
 </div>
 
-{% with messages = get_flashed_messages(with_categories=true) %}
 {% if messages %}
-    {% for category, message in messages %}
-    <div class="alert alert-{{ category }}">{{ message }}</div>
+    {% for msg in messages %}
+    <div class="alert alert-{{ msg.category }}">{{ msg.message }}</div>
     {% endfor %}
 {% endif %}
-{% endwith %}
 
 <div class="alert alert-info">
-    **ÖNEMLİ:** Lütfen tarayıcınızın yazdırma ayarlarından **Başlıklar ve Altbilgiler** (Headers and Footers) seçeneğini **KAPATIN** ve **Arka Plan Grafikleri** (Background Graphics) seçeneği **AÇIK** olduğundan emin olun.
+    <strong>ÖNEMLİ:</strong> Tarayıcı yazdırma ayarlarında 
+    <strong>Başlıklar ve Altbilgiler</strong> seçeneğini kapatın, 
+    <strong>Arka Plan Grafikleri</strong> seçeneğini açık bırakın.
 </div>
 
 <div class="print-container">
-    {{ labels | join('\n') | safe }}
+    {{ labels | safe }}
 </div>
 
-<div class="mt-5 text-center">
-    <a href="{{ url_for('table_view') }}" class="btn btn-secondary me-2"><i class="bi bi-arrow-left"></i> Tabloya Geri Dön</a>
-    <button onclick="window.print()" class="btn btn-lg btn-danger"><i class="bi bi-file-earmark-pdf-fill"></i> Yazdır</button>
+<div class="mt-5 text-center no-print">
+    <a href="/table_view" class="btn btn-secondary me-2">
+        <i class="bi bi-arrow-left"></i> Tabloya Geri Dön
+    </a>
+    <button onclick="window.print()" class="btn btn-lg btn-danger">
+        <i class="bi bi-file-earmark-pdf-fill"></i> Yazdır
+    </button>
 </div>
-
 {% endblock %}
