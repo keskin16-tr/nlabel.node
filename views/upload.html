@@ -4,22 +4,25 @@
 {% block content %}
 <h2 class="mb-4">1. Veri Dosyası Yükleme</h2>
 
-{% with messages = get_flashed_messages(with_categories=true) %}
 {% if messages %}
-    {% for category, message in messages %}
-    <div class="alert alert-{{ category }}">{{ message }}</div>
+    {% for msg in messages %}
+    <div class="alert alert-{{ msg.category }}">{{ msg.message }}</div>
     {% endfor %}
 {% endif %}
-{% endwith %}
 
 <div class="card p-4 shadow">
-    <form method="POST" action="{{ url_for('upload') }}" enctype="multipart/form-data">
+    <form method="POST" action="/upload" enctype="multipart/form-data">
         <div class="mb-3">
             <label for="file" class="form-label">CSV veya XLSX Dosyası Seçin</label>
             <input type="file" class="form-control" id="file" name="file" accept=".csv, .xlsx" required>
-            <div id="fileHelp" class="form-text">Desteklenen formatlar: CSV ve XLSX (Excel). Büyük dosyalarda Tab (\t) ayırıcılı CSV önerilir.</div>
+            <div id="fileHelp" class="form-text">
+                Desteklenen formatlar: CSV ve XLSX (Excel). 
+                Büyük dosyalarda Tab (\\t) ayırıcılı CSV önerilir.
+            </div>
         </div>
-        <button type="submit" class="btn btn-primary btn-lg">Dosyayı Yükle ve Başlat</button>
+        <button type="submit" class="btn btn-primary btn-lg">
+            Dosyayı Yükle ve Başlat
+        </button>
     </form>
 </div>
 {% endblock %}
