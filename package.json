@@ -1,11 +1,10 @@
 {
-  "name": "etiket-app-nodejs",
-  "version": "1.1.0",
-  "description": "Flask etiket uygulamasının Node.js/Express versiyonu (CSV/XLSX + QR + Nunjucks)",
+  "name": "etiket-app-render",
+  "version": "1.1.2",
+  "description": "Render uyumlu Node.js/Express etiket uygulaması (CSV/XLSX + QR + Nunjucks)",
   "main": "app.js",
   "scripts": {
-    "start": "node app.js",
-    "dev": "nodemon app.js"
+    "start": "node app.js"
   },
   "dependencies": {
     "csvtojson": "^2.0.10",
@@ -15,8 +14,5 @@
     "nunjucks": "^3.2.4",
     "qrcode": "^1.5.4",
     "xlsx": "^0.18.5"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.4"
   }
 }
