@@ -1,12 +1,10 @@
-// app.js
-//-----------------------------------------------------------
-// Flask Etiket Sistemi'nin Render uyumlu Node.js (Express + Nunjucks) sürümü
-//-----------------------------------------------------------
+// app.js — Render.com uyumlu Express/Nunjucks etiket yazdırma uygulaması
 
 const express = require("express");
 const session = require("express-session");
 const multer = require("multer");
 const path = require("path");
+const fs = require("fs");
 const nunjucks = require("nunjucks");
 const xlsx = require("xlsx");
 const csv = require("csvtojson");
@@ -14,54 +12,69 @@ const qrcode = require("qrcode");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const UPLOAD_FOLDER = "uploads";
+const ALLOWED_EXTENSIONS = [".csv", ".xlsx"];
 
-// -----------------------------------------------------------
-// Nunjucks yapılandırması (Render uyumlu)
-nunjucks.configure(path.join(__dirname, "views"), {
+// --- Nunjucks Ayarları ---
+const env = nunjucks.configure(path.join(__dirname, "views"), {
   autoescape: true,
   express: app,
-  noCache: true,
+  noCache: process.env.NODE_ENV !== "production",
 });
-app.set("view engine", "html");
 
-// -----------------------------------------------------------
-// Express yapılandırması
+// Flask’taki url_for yerine basit bir yardımcı
+env.addGlobal("url_for", (route) => `/${route}`);
+
+// --- Express Ayarları ---
+app.set("view engine", "html");
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.urlencoded({ extended: true }));
 app.use(
   session({
-    secret: "render_node_etiket_secret",
+    secret: process.env.SESSION_SECRET || "super_guvenli_anahtar",
     resave: false,
     saveUninitialized: true,
-    cookie: { maxAge: 6 * 60 * 60 * 1000 }, // 6 saatlik session
+    cookie: { maxAge: 24 * 60 * 60 * 1000 },
   })
 );
 
-// -----------------------------------------------------------
-// Multer (RAM üzerinde çalışacak şekilde - Render uyumlu)
-const upload = multer({ storage: multer.memoryStorage() });
+// Upload klasörü yoksa oluştur
+if (!fs.existsSync(UPLOAD_FOLDER)) fs.mkdirSync(UPLOAD_FOLDER);
 
-// -----------------------------------------------------------
-// Middleware
+// --- Multer Dosya Yükleme Ayarları ---
+const storage = multer.diskStorage({
+  destination: (_, __, cb) => cb(null, UPLOAD_FOLDER),
+  filename: (_, file, cb) => cb(null, Date.now() + "-" + file.originalname),
+});
+const upload = multer({
+  storage,
+  fileFilter: (_, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ALLOWED_EXTENSIONS.includes(ext)) cb(null, true);
+    else cb(new Error("Sadece CSV ve XLSX dosyaları desteklenir."));
+  },
+});
+
+// --- Middleware ---
 app.use((req, res, next) => {
   res.locals.messages = req.session.messages || [];
   req.session.messages = [];
+  res.locals.session = req.session;
   next();
 });
 
-// Giriş kontrolü
-function loginRequired(req, res, next) {
+// --- Login kontrolü ---
+const loginRequired = (req, res, next) => {
   if (req.session.logged_in) return next();
-  req.session.messages = [
-    { category: "danger", message: "Bu sayfaya erişmek için giriş yapmalısınız." },
-  ];
-  return res.redirect("/login");
-}
+  req.session.messages = [{ category: "danger", message: "Lütfen giriş yapın." }];
+  res.redirect("/login");
+};
 
-// -----------------------------------------------------------
-// 1️⃣ LOGIN
+// --- ROUTES ---
+
+// Login Sayfası
 app.get("/login", (req, res) => {
-  res.render("login.html", { title: "Giriş Yap" });
+  res.render("login.html", { title: "Kullanıcı Girişi", messages: res.locals.messages });
 });
 
 app.post("/login", (req, res) => {
@@ -69,60 +82,47 @@ app.post("/login", (req, res) => {
   if (username === "admin" && password === "1234") {
     req.session.logged_in = true;
     req.session.username = username;
-    req.session.messages = [
-      { category: "success", message: `Hoş geldiniz, ${username}!` },
-    ];
-    return res.redirect("/upload");
+    req.session.messages.push({ category: "success", message: `Hoş geldiniz, ${username}!` });
+    res.redirect("/upload");
+  } else {
+    req.session.messages.push({ category: "danger", message: "Kullanıcı adı veya parola hatalı." });
+    res.redirect("/login");
   }
-  req.session.messages = [
-    { category: "danger", message: "Geçersiz kullanıcı adı veya parola." },
-  ];
-  res.redirect("/login");
 });
 
-app.get("/", (req, res) => res.redirect("/login"));
+app.get("/", (_, res) => res.redirect("/login"));
 
 app.get("/logout", (req, res) => {
   req.session.destroy(() => res.redirect("/login"));
 });
 
-// -----------------------------------------------------------
-// 2️⃣ DOSYA YÜKLEME (Render uyumlu: memoryStorage)
+// --- Upload Sayfası ---
 app.get("/upload", loginRequired, (req, res) => {
-  res.render("upload.html", { title: "Dosya Yükleme" });
+  res.render("upload.html", { title: "Dosya Yükleme", messages: res.locals.messages });
 });
 
 app.post("/upload", loginRequired, upload.single("file"), async (req, res) => {
   if (!req.file) {
-    req.session.messages.push({
-      category: "danger",
-      message: "Lütfen bir dosya seçin.",
-    });
+    req.session.messages.push({ category: "danger", message: "Lütfen bir dosya seçin." });
     return res.redirect("/upload");
   }
 
-  const buffer = req.file.buffer;
-  const ext = path.extname(req.file.originalname).toLowerCase();
+  const filePath = req.file.path;
+  const fileExt = path.extname(req.file.originalname).toLowerCase();
 
   try {
-    let data = [];
-
-    if (ext === ".xlsx") {
-      const wb = xlsx.read(buffer, { type: "buffer" });
+    let data;
+    if (fileExt === ".xlsx") {
+      const wb = xlsx.readFile(filePath);
       const ws = wb.Sheets[wb.SheetNames[0]];
       data = xlsx.utils.sheet_to_json(ws);
-    } else if (ext === ".csv") {
-      const text = buffer.toString("utf8");
-      data = await csv().fromString(text);
-    } else {
-      throw new Error("Desteklenmeyen dosya türü. Sadece CSV ve XLSX desteklenir.");
+    } else if (fileExt === ".csv") {
+      data = await csv().fromFile(filePath);
     }
 
-    if (!data.length) {
-      req.session.messages.push({
-        category: "warning",
-        message: "Dosya yüklendi ancak içinde veri bulunamadı.",
-      });
+    fs.unlink(filePath, () => {});
+    if (!data || data.length === 0) {
+      req.session.messages.push({ category: "warning", message: "Dosya yüklendi ancak veri yok." });
       return res.redirect("/upload");
     }
 
@@ -130,109 +130,95 @@ app.post("/upload", loginRequired, upload.single("file"), async (req, res) => {
     req.session.columns = Object.keys(data[0]);
     req.session.messages.push({
       category: "success",
-      message: `${req.file.originalname} başarıyla yüklendi (${data.length} satır).`,
+      message: `${req.file.originalname} başarıyla yüklendi. (${data.length} satır okundu)`,
     });
-
     res.redirect("/table_view");
   } catch (err) {
     console.error("Yükleme hatası:", err);
-    req.session.messages.push({
-      category: "danger",
-      message: `Dosya okunamadı: ${err.message}`,
-    });
+    req.session.messages.push({ category: "danger", message: `Hata: ${err.message}` });
     res.redirect("/upload");
   }
 });
 
-// -----------------------------------------------------------
-// 3️⃣ TABLO GÖRÜNÜMÜ
+// --- Veri Tablosu Sayfası ---
 app.get("/table_view", loginRequired, (req, res) => {
   res.render("table_view.html", {
     title: "Veri Tablosu",
     columns: req.session.columns || [],
     data: req.session.data_table || [],
     template_set: true,
+    messages: res.locals.messages,
   });
 });
 
-app.post("/prepare_for_print", loginRequired, (req, res) => {
-  const selectedRows = Array.isArray(req.body.selected_rows)
-    ? req.body.selected_rows.map(Number)
-    : req.body.selected_rows
-    ? [Number(req.body.selected_rows)]
-    : [];
+app.post("/table_view", loginRequired, (req, res) => {
+  const selected = Array.isArray(req.body.selected_rows)
+    ? req.body.selected_rows.map((i) => parseInt(i))
+    : [parseInt(req.body.selected_rows || -1)].filter((x) => x >= 0);
 
-  if (!selectedRows.length) {
-    req.session.messages.push({
-      category: "warning",
-      message: "Lütfen yazdırmak için en az bir satır seçin.",
-    });
+  const allData = req.session.data_table || [];
+  const selectedData = selected.map((i) => allData[i]).filter(Boolean);
+
+  if (selectedData.length === 0) {
+    req.session.messages.push({ category: "warning", message: "Hiç satır seçilmedi." });
     return res.redirect("/table_view");
   }
 
-  const allData = req.session.data_table || [];
-  req.session.selected_data_for_print = selectedRows
-    .map((i) => allData[i])
-    .filter(Boolean);
-
+  req.session.selected_data_for_print = selectedData;
   req.session.messages.push({
     category: "success",
-    message: `${selectedRows.length} satır yazdırmaya hazırlandı.`,
+    message: `${selectedData.length} satır yazdırmaya hazırlandı.`,
   });
   res.redirect("/print_preview");
 });
 
-// -----------------------------------------------------------
-// 4️⃣ QR CODE
-app.get("/qrcode/:data_to_encode", async (req, res) => {
+// --- QR Code ---
+app.get("/qrcode/:data", async (req, res) => {
   try {
-    const qr = await qrcode.toBuffer(req.params.data_to_encode, {
-      errorCorrectionLevel: "H",
-      type: "image/png",
-      scale: 8,
-    });
-    res.writeHead(200, {
-      "Content-Type": "image/png",
-      "Content-Length": qr.length,
-    });
-    res.end(qr);
+    const buffer = await qrcode.toBuffer(req.params.data, { errorCorrectionLevel: "H" });
+    res.type("png").send(buffer);
   } catch (err) {
-    console.error("QR Kod hatası:", err);
-    res.status(500).send("QR Kod oluşturulamadı.");
+    console.error("QR Code Hatası:", err);
+    res.status(500).send("QR Code oluşturulamadı.");
   }
 });
 
-// -----------------------------------------------------------
-// 5️⃣ YAZDIRMA ÖNİZLEMESİ
+// --- Yazdırma Önizlemesi ---
 app.get("/print_preview", loginRequired, (req, res) => {
-  const dataToPrint = req.session.selected_data_for_print || [];
-  if (!dataToPrint.length) {
-    req.session.messages.push({
-      category: "warning",
-      message: "Yazdırmak için seçilmiş veri yok.",
-    });
+  const data = req.session.selected_data_for_print || [];
+  if (data.length === 0) {
+    req.session.messages.push({ category: "warning", message: "Yazdırılacak veri yok." });
     return res.redirect("/table_view");
   }
 
-  const cols = req.session.columns || [];
-  const labelsHtml = dataToPrint.map((row) => {
-    const cells = cols
-      .map(
-        (key) =>
-          `<div class="label-cell"><b>${key}</b>: ${row[key] || ""}</div>`
-      )
-      .join("");
-    return `<div class="etiket-kutu"><div class="etiket-grid">${cells}</div></div>`;
-  });
+  const labels = data
+    .map((row) => {
+      return `
+        <div class="etiket-kutu">
+            <div class="etiket-grid">
+                <div class="label-cell" style="grid-column: span 2;">Ürün Adı:</div>
+                <div class="label-cell" style="grid-column: span 2;">${row.URUN_ADI || ""}</div>
+                <div class="label-cell" style="grid-column: span 2;" rowspan="3">
+                    <img src="/qrcode/${encodeURIComponent(row.SERI_NO || "BOS")}" alt="QR">
+                </div>
+
+                <div class="label-cell" style="grid-column: span 2;">Model:</div>
+                <div class="label-cell" style="grid-column: span 2;">${row.MODEL || ""}</div>
+                <div class="label-cell" style="grid-column: span 2;">Seri No:</div>
+                <div class="label-cell" style="grid-column: span 2;">${row.SERI_NO || ""}</div>
+            </div>
+        </div>`;
+    })
+    .join("\n");
 
   res.render("print_preview.html", {
     title: "Yazdırma Önizlemesi",
-    labels: labelsHtml,
+    labels,
+    messages: res.locals.messages,
   });
 });
 
-// -----------------------------------------------------------
-// Sunucu (Render uyumlu)
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`✅ Server aktif: http://localhost:${PORT}`);
+// --- Sunucuyu Başlat ---
+app.listen(PORT, () => {
+  console.log(`✅ Sunucu çalışıyor: http://localhost:${PORT}`);
 });
