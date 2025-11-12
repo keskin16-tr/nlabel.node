@@ -6,32 +6,26 @@
     <div class="col-md-5">
         <h2 class="mb-4 text-center">Uygulama Girişi</h2>
 
-        {# Nunjucks/Express Uyumlu Flash Mesaj Gösterimi #}
         {% if messages %}
-            {% for message_obj in messages %}
-                <div class="alert alert-{{ message_obj.category }}">{{ message_obj.message }}</div>
+            {% for msg in messages %}
+                <div class="alert alert-{{ msg.category }}">{{ msg.message }}</div>
             {% endfor %}
         {% endif %}
 
         <div class="card shadow-lg">
             <div class="card-body p-4">
-                {# Flask Form etiketleri kaldırıldı. Form methodu ve action kaldı. #}
-                <form method="POST" action="{{ url_for('login') }}">
-                    
-                    {# Kullanıcı Adı Alanı #}
+                <form method="POST" action="/login">
                     <div class="mb-3">
                         <label for="username" class="form-label">Kullanıcı Adı</label>
                         <input type="text" class="form-control" id="username" name="username" required>
                     </div>
 
-                    {# Parola Alanı #}
                     <div class="mb-4">
                         <label for="password" class="form-label">Parola</label>
                         <input type="password" class="form-control" id="password" name="password" required>
                     </div>
 
                     <button type="submit" class="btn btn-primary w-100">Giriş Yap</button>
-                    
                 </form>
             </div>
         </div>
