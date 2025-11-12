@@ -2,9 +2,13 @@
 {% block title %}Veri Tablosu{% endblock %}
 
 {% block head_extra %}
+<meta charset="UTF-8">
 <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/2.0.8/css/dataTables.bootstrap3.min.css"/>
 <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/3.0.2/css/buttons.bootstrap3.min.css"/>
 <style>
+    body {
+        font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+    }
     .filter-input {
         width: 100%; 
         box-sizing: border-box; 
@@ -13,17 +17,26 @@
         border: 1px solid #ccc;
         border-radius: 4px;
     }
+    .table-responsive {
+        width: 100% !important;
+        overflow-x: auto;
+    }
+    #data_table {
+        width: 100% !important;
+        table-layout: auto;
+        border-collapse: collapse;
+    }
+    #data_table th, #data_table td {
+        white-space: nowrap;
+        text-align: center;
+        padding: 6px 10px;
+    }
+    #data_table thead th {
+        background-color: #f8f9fa;
+        font-weight: bold;
+    }
 </style>
 {% endblock %}
-
-
-{% block head_extra %}
-<meta charset="UTF-8">
-<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/2.0.8/css/dataTables.bootstrap3.min.css"/>
-<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/3.0.2/css/buttons.bootstrap3.min.css"/>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/data_table.css') }}">
-{% endblock %}
-
 
 {% block content %}
 <h2 class="mb-4">2. Etiketlenecek Veri Tablosu</h2>
@@ -53,7 +66,7 @@
     </div>
 
     <div class="table-responsive">
-        <table id="data_table" class="table table-striped table-hover table-sm" style="width:100%">
+        <table id="data_table" class="table table-striped table-hover table-sm">
             <thead>
                 <tr>
                     <th><input type="checkbox" id="select_all"></th>
